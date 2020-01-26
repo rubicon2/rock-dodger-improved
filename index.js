@@ -3,26 +3,27 @@
  */
 const DODGER = document.getElementById('dodger')
 const GAME = document.getElementById('game')
+const SCORE = document.getElementById("score"); 
 const GAME_HEIGHT = 400
 const GAME_WIDTH = 400
-const LEFT_ARROW = 37 // use e.which!
-const RIGHT_ARROW = 39 // use e.which!
+const LEFT_ARROW = 37
+const RIGHT_ARROW = 39
 const ROCKS = []
 const START = document.getElementById('start')
 
 var gameInterval = null
+var rockCountdown = null;
 
-// Blah blah test, made a comment. 
+var scoreCounter = 0; 
+var maxScore = 10000;
+var rockMinSpeed = 2;
+var rockMaxSpeed = 10;
+var currentRockSpeed = rockMinSpeed;
 
-/**
- * Be aware of what's above this line,
- * but all of your work should happen below.
- */
-
- var leftDown = false;
- var rightDown = false;
- var isMoving = false;
- var dodgerSpeed = 4;
+var leftDown = false;
+var rightDown = false;
+var isMoving = false;
+var dodgerSpeed = 4;
 
 function checkCollision(rock) {
 
@@ -75,7 +76,8 @@ function createRock(x) {
    */
   function moveRock() {
 
-    rock.style.top = `${top += 2}px`;
+    currentRockSpeed = lerpUnclamped(rockMinSpeed, rockMaxSpeed, scoreCounter / maxScore); 
+    rock.style.top = `${top += currentRockSpeed}px`;
 
     if (checkCollision(rock)) {
       return endGame(); 
@@ -84,7 +86,9 @@ function createRock(x) {
     if (top < GAME_HEIGHT) {
       window.requestAnimationFrame(moveRock); 
     } else {
-      rock.remove(); 
+      rock.remove();
+      scoreCounter += 100; 
+      SCORE.innerHTML = "Score: " + scoreCounter;
     }
   }
 
@@ -93,15 +97,24 @@ function createRock(x) {
   return rock
 }
 
-/**
- * End the game by clearing `gameInterval`,
- * removing all ROCKS from the DOM,
- * and removing the `moveDodger` event listener.
- * Finally, alert "YOU LOSE!" to the player.
- */
+function lerpClamped(start, end, interpolant) {
+  if (interpolant > 1) { 
+    interpolant = 1; 
+  } else if (interpolant < 0) { 
+    interpolant = 0; 
+  }
+  lerpUnclamped(start, end, interpolant);
+}
+
+function lerpUnclamped(start, end, interpolant) {
+  let diff = end - start;
+  return (diff * interpolant) + start;
+}
+
 function endGame() {
 
-  clearInterval(gameInterval); 
+  // clearInterval(gameInterval); 
+  clearTimeout(rockCountdown); 
   removeEventListener("keyup", stopDodger); 
   removeEventListener('keydown', moveDodger); 
 
@@ -123,7 +136,6 @@ function moveDodger(e) {
         moveDodgerLeft();
         isMoving = true;
       }  
-
       break;
 
     case RIGHT_ARROW:
@@ -143,7 +155,7 @@ function moveDodgerLeft() {
   var currentPos = positionToInteger(DODGER.style.left);
 
   function step() {
-    if (leftDown) {
+    if (leftDown && currentPos > 0) {
       DODGER.style.left = `${currentPos -= dodgerSpeed}px`;
       window.requestAnimationFrame(step); 
     } 
@@ -156,7 +168,7 @@ function moveDodgerRight() {
   var currentPos = positionToInteger(DODGER.style.left);
 
   function step() {
-    if (rightDown) {
+    if (rightDown && currentPos < GAME_WIDTH - 40) {
       DODGER.style.left = `${currentPos += dodgerSpeed}px`;
       window.requestAnimationFrame(step); 
     } 
@@ -169,6 +181,22 @@ function stopDodger() {
   leftDown = false;
   rightDown = false;
   isMoving = false;
+}
+
+function setGameInterval(speed) {
+  clearInterval(gameInterval); 
+  gameInterval = setInterval(function() {
+    createRock(Math.floor(Math.random() *  (GAME_WIDTH - 20)))
+  }, speed)
+}
+
+function setRockCountdown(time) {
+  createRock(Math.floor(Math.random() * (GAME_WIDTH - 20))); 
+
+  let newCountdownTime = 1000 - (1000 * (scoreCounter/maxScore));
+  rockCountdown = setTimeout(function() {
+    setRockCountdown(1000); 
+  }, newCountdownTime); 
 }
 
 /**
@@ -185,7 +213,8 @@ function start() {
 
   START.style.display = 'none'
 
-  gameInterval = setInterval(function() {
-    createRock(Math.floor(Math.random() *  (GAME_WIDTH - 20)))
-  }, 1000)
+  // setGameInterval(1000); 
+  rockCountdown = setTimeout(function() {
+    setRockCountdown(1000); 
+  }, 1000); 
 }
