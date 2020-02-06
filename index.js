@@ -9,16 +9,26 @@ const GAME_WIDTH = 400
 const LEFT_ARROW = 37
 const RIGHT_ARROW = 39
 const ROCKS = []
+const MESSAGES = []; 
 const START = document.getElementById('start')
 
 var gameInterval = null
 var rockCountdown = null;
+var idleCountdown = null; 
+var deactivateBonusCountdown = null;
 
 var scoreCounter = 0; 
 var maxScore = 10000;
-var rockMinSpeed = 2;
+var scoreIncrement = 1;
+var closeBonusIncrement = 10;
+var closeBonusDistance = 50; 
+var bonusActive = false;
+
+var rockMinSpeed = 2.5;
 var rockMaxSpeed = 10;
 var currentRockSpeed = rockMinSpeed;
+var minRockCountDown = 500;
+var idleRockCountdown = 1000; 
 
 var leftDown = false;
 var rightDown = false;
@@ -41,7 +51,6 @@ function checkCollision(rock) {
     const rockLeftEdge = positionToInteger(rock.style.left)
     const rockRightEdge = rockLeftEdge + 20;
 
-    
     if (rockLeftEdge <= dodgerLeftEdge && rockRightEdge >= dodgerLeftEdge) {
       return true;
     } else if (rockLeftEdge >= dodgerLeftEdge && rockRightEdge <= dodgerRightEdge) {
@@ -49,6 +58,26 @@ function checkCollision(rock) {
     } else if (rockLeftEdge <= dodgerRightEdge && rockRightEdge >= dodgerRightEdge) {
       return true;
     }    
+      
+    // If not a hit, check for distance, if dodger is close enough to rock, then award extra pointz! 
+    const dodgerCenter = positionToInteger(DODGER.style.left) + 20;
+    const rockCenter = positionToInteger(rock.style.left) + 10;
+    const centerDiff = Math.abs(dodgerCenter - rockCenter); 
+
+    if (deactivateBonusCountdown === null && centerDiff < closeBonusDistance) {
+      // Activate dat bonus! 
+      bonusActive = true;
+      SCORE.id = "bonusScore";
+      createMessage(); 
+      // Deactivate the bonus after a certain amount of time, depending on how close you were to getting hit. 
+      let bonusTime = Math.abs(closeBonusDistance / centerDiff) * 3000; 
+      console.log("BONUS TIME: " + bonusTime);
+      deactivateBonusCountdown = setTimeout(function() {
+        deactivateBonusCountdown = null;
+        bonusActive = false;
+        SCORE.id = "score"; 
+      }, bonusTime); 
+    }
   }
 }
 
@@ -59,36 +88,29 @@ function createRock(x) {
   rock.className = 'rock'
   rock.style.left = `${x}px`
 
-  // Hmmm, why would we have used `var` here?
   var top = 0
 
   rock.style.top = top
 
-  /**
-   * Now that we have a rock, we'll need to append
-   * it to GAME and move it downwards.
-   */
   GAME.appendChild(rock);
 
-  /**
-   * This function moves the rock. (2 pixels at a time
-   * seems like a good pace.)
-   */
   function moveRock() {
 
-    currentRockSpeed = lerpUnclamped(rockMinSpeed, rockMaxSpeed, scoreCounter / maxScore); 
+    currentRockSpeed = lerpClamped(rockMinSpeed, rockMaxSpeed, scoreCounter / maxScore); 
     rock.style.top = `${top += currentRockSpeed}px`;
 
     if (checkCollision(rock)) {
       return endGame(); 
     }
-
+    
     if (top < GAME_HEIGHT) {
+      if (top > GAME_HEIGHT - 20) {
+        let bonusMultiplier = (bonusActive ? 10 : 1); 
+        updateScore(scoreCounter + (scoreIncrement * bonusMultiplier)); 
+      }
       window.requestAnimationFrame(moveRock); 
     } else {
       rock.remove();
-      scoreCounter += 100; 
-      SCORE.innerHTML = "Score: " + scoreCounter;
     }
   }
 
@@ -97,13 +119,18 @@ function createRock(x) {
   return rock
 }
 
+function updateScore(newScore) {
+  scoreCounter = newScore; 
+  SCORE.innerHTML = "Score: " + scoreCounter;
+}
+
 function lerpClamped(start, end, interpolant) {
   if (interpolant > 1) { 
     interpolant = 1; 
   } else if (interpolant < 0) { 
     interpolant = 0; 
   }
-  lerpUnclamped(start, end, interpolant);
+  return lerpUnclamped(start, end, interpolant);
 }
 
 function lerpUnclamped(start, end, interpolant) {
@@ -114,39 +141,67 @@ function lerpUnclamped(start, end, interpolant) {
 function endGame() {
 
   // clearInterval(gameInterval); 
+  stopDodger();
   clearTimeout(rockCountdown); 
+  clearTimeout(idleCountdown); 
   removeEventListener("keyup", stopDodger); 
   removeEventListener('keydown', moveDodger); 
+  
 
   ROCKS.forEach(function(rock) {
-    rock.remove(); 
+    // rock.remove(); 
   })
 
-  alert("You lose!"); 
+  MESSAGES.forEach(function(msg) {
+    msg.remove();
+  })
+
+  // alert("You lose!"); 
+  START.innerText = "AGAIN?";
+  START.style.display = "initial";
 }
 
 function moveDodger(e) {
+
+  // Use isMoving bool to see if recursive moveDodgerLeft/Right functions have already been called. 
+  // If we don't do this - while a key is held down, the move functions will get called repeatedly from this function, causing jittery movement. 
+
   switch(e.which) {
     case LEFT_ARROW:
 
+      clearTimeout(idleCountdown); 
+
       leftDown = true;
-      rightDown = false;
+
+      if (rightDown) {
+        rightDown = false;
+        isMoving = false;
+      }
 
       if (!isMoving) {
         moveDodgerLeft();
         isMoving = true;
       }  
+
       break;
 
     case RIGHT_ARROW:
 
-      leftDown = false;
+      clearTimeout(idleCountdown); 
+
       rightDown = true;
+      
+
+      if (leftDown) {
+        leftDown = false;
+        isMoving = false;
+      }
 
       if (!isMoving) {
         moveDodgerRight();
         isMoving = true;
       }  
+
       break;
   }
 }
@@ -177,9 +232,30 @@ function moveDodgerRight() {
   step(); 
 }
 
+function keyUp(e) {
+  switch(e.which) {
+    case LEFT_ARROW:
+      leftDown = false;
+      break;
+
+    case RIGHT_ARROW:
+      rightDown = false;
+      break;
+  }
+
+  if (!leftDown && !rightDown) {
+    stopDodger();
+  }
+}
+
 function stopDodger() {
-  leftDown = false;
-  rightDown = false;
+  // If game hasn't ended yet, start a timer that spawns a rock directly above the player if they idle too long. 
+  if (START.style.display === "none") {
+    idleCountdown = setTimeout(function() {
+      abovePlayer = positionToInteger(DODGER.style.left) + 10;
+      createRock(abovePlayer); 
+    }, idleRockCountdown); 
+  }
   isMoving = false;
 }
 
@@ -187,16 +263,34 @@ function setGameInterval(speed) {
   clearInterval(gameInterval); 
   gameInterval = setInterval(function() {
     createRock(Math.floor(Math.random() *  (GAME_WIDTH - 20)))
-  }, speed)
+  }, speed); 
 }
 
 function setRockCountdown(time) {
   createRock(Math.floor(Math.random() * (GAME_WIDTH - 20))); 
 
   let newCountdownTime = 1000 - (1000 * (scoreCounter/maxScore));
+  if (newCountdownTime < minRockCountDown) { newCountdownTime = minRockCountDown; }
   rockCountdown = setTimeout(function() {
     setRockCountdown(1000); 
   }, newCountdownTime); 
+}
+
+function createMessage(parentElement) {
+  let msg = document.createElement("div");
+  msg.className = "message";
+  msg.innerText = "CLOSE ONE!";
+  MESSAGES.push(msg); 
+  GAME.appendChild(msg); 
+  
+  let duration = durationToInteger(msg.style.animationDuration); 
+  setTimeout(function() {
+    clearMessage(msg); 
+  }, 3000); 
+}
+
+function clearMessage(msg) {
+  msg.remove();
 }
 
 /**
@@ -207,13 +301,19 @@ function positionToInteger(p) {
   return parseInt(p.split('px')[0]) || 0
 }
 
+function durationToInteger(p) {
+  return parseInt(p.split("s")[0]) || 0; 
+}
+
 function start() {
+
+  updateScore(0); 
+
   window.addEventListener('keydown', moveDodger)
-  window.addEventListener("keyup", stopDodger);
+  window.addEventListener("keyup", keyUp);
 
   START.style.display = 'none'
 
-  // setGameInterval(1000); 
   rockCountdown = setTimeout(function() {
     setRockCountdown(1000); 
   }, 1000); 

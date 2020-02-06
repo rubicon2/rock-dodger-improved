@@ -1,3 +1,16 @@
+.unselectable {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+body {
+  font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif; 
+}
+
 #dodger {
   background-color: white;
   height: 20px;
@@ -19,21 +32,77 @@
 #start {
   color: white;
   font-size: 4rem;
-  font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif; 
   position: relative;
   text-decoration: none;
   top: 4rem;
   z-index: 1; 
+  animation-duration: 2s;
+  animation-timing-function: linear;
+  animation-name: pulseText;
+  animation-direction: alternate;
+  animation-iteration-count: infinite;
+}
+
+@keyframes pulseText {
+  from {
+    color: grey; 
+  }
+  to {
+    color: white; 
+  }
+}
+
+.message {
+  color: orange;
+  font-size: 1rem; 
+  font-weight: bold;
+  animation-duration: 3s;
+  animation-name: messageFadeOut;
+}
+
+@keyframes messageFadeOut {
+  from  {
+    color: yellow;
+    opacity: 1;
+  }
+  to {
+    color: red;
+    opacity: 0;
+  }
 }
 
 #score {
   color: white;
   font-size: 2rem; 
-  font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif; 
   font-weight: bold;
   text-align: left;
   margin-left: 10px;
   z-index: 0;
+}
+
+#bonusScore {
+  color: white;
+  font-size: 2rem; 
+  font-weight: bold;
+  text-align: left;
+  margin-left: 10px;
+  z-index: 0;
+  animation-duration: 0.5s;
+  animation-timing-function: linear;
+  animation-name: pulseScore;
+  animation-direction: alternate;
+  animation-iteration-count: infinite;
+}
+
+@keyframes pulseScore {
+  from {
+    transform: skewX(10deg);
+    color: yellow; 
+  }
+  to {
+    transform: skewX(-10deg); 
+    color: red; 
+  }
 }
 
 .rock {
